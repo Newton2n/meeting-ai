@@ -15,10 +15,7 @@ type RouteContext = {
   }>;
 };
 
-export async function POST(
-  request: Request,
-  context: RouteContext,
-) {
+export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
 
@@ -71,22 +68,16 @@ export async function POST(
       );
     }
 
-    const actionItems = meeting.actionItems.map(
-      (item) => ({
-        task: item.task,
-        assignee: item.assignee,
-        dueDate: item.dueDate,
-        status: item.status,
-      }),
-    );
+    const actionItems = meeting.actionItems.map((item) => ({
+      task: item.task,
+      assignee: item.assignee,
+      dueDate: item.dueDate,
+      status: item.status,
+    }));
 
-    const previousMessages =
-      meeting.chatMessages
-        .map(
-          (message) =>
-            `${message.role}: ${message.content}`,
-        )
-        .join("\n");
+    const previousMessages = meeting.chatMessages
+      .map((message) => `${message.role}: ${message.content}`)
+      .join("\n");
 
     const meetingContext = `
 Meeting title:
@@ -99,14 +90,10 @@ Summary:
 ${meeting.summary ?? "Not available"}
 
 Key decisions:
-${JSON.stringify(
-  meeting.keyDecisions ?? [],
-)}
+${JSON.stringify(meeting.keyDecisions ?? [])}
 
 Open questions:
-${JSON.stringify(
-  meeting.openQuestions ?? [],
-)}
+${JSON.stringify(meeting.openQuestions ?? [])}
 
 Action items:
 ${JSON.stringify(actionItems)}
@@ -117,7 +104,7 @@ ${previousMessages || "No previous conversation"}
 
     const response = await withGeminiRetry(() =>
       gemini.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.1-flash-lite",
 
         contents: `
 You are an AI meeting assistant.
@@ -149,9 +136,7 @@ ${result.data.message}
     const answer = response.text;
 
     if (!answer) {
-      throw new Error(
-        "Gemini returned an empty response",
-      );
+      throw new Error("Gemini returned an empty response");
     }
 
     await prisma.chatMessage.createMany({
@@ -174,18 +159,13 @@ ${result.data.message}
       answer,
     });
   } catch (error) {
-    console.error(
-      "========== GEMINI CHAT ERROR ==========",
-    );
+    console.error("========== GEMINI CHAT ERROR ==========");
 
     console.error(error);
 
-    console.error(
-      "=======================================",
-    );
+    console.error("=======================================");
 
-    const errorMessage =
-      error instanceof Error ? error.message : "";
+    const errorMessage = error instanceof Error ? error.message : "";
 
     if (
       errorMessage.includes("503") ||
@@ -236,8 +216,7 @@ ${result.data.message}
 
     return NextResponse.json(
       {
-        message:
-          "Failed to answer the question. Please try again.",
+        message: "Failed to answer the question. Please try again.",
       },
       {
         status: 500,

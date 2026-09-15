@@ -50,7 +50,7 @@ export async function POST(
 
     const response = await withGeminiRetry(() =>
       gemini.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.1-flash-lite",
 
         contents: `
 Analyze the following meeting transcript.
