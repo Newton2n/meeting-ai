@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { gemini } from "../../../../../lib/gemini";
+import { withGeminiRetry } from "../../../../../lib/gemini-retry";
 import { prisma } from "../../../../../lib/prisma";
 
 const analysisSchema = z.object({
@@ -23,7 +24,10 @@ type RouteContext = {
   }>;
 };
 
-export async function POST(_request: Request, context: RouteContext) {
+export async function POST(
+  _request: Request,
+  context: RouteContext,
+) {
   try {
     const { id } = await context.params;
 
@@ -44,9 +48,11 @@ export async function POST(_request: Request, context: RouteContext) {
       );
     }
 
-    const response = await gemini.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: `
+    const response = await withGeminiRetry(() =>
+      gemini.models.generateContent({
+        model: "gemini-3.6-flash",
+
+        contents: `
 Analyze the following meeting transcript.
 
 Extract:
@@ -73,57 +79,80 @@ ${meeting.title}
 
 Meeting transcript:
 ${meeting.transcript}
-      `,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "object",
-          properties: {
-            summary: {
-              type: "string",
-            },
-            keyDecisions: {
-              type: "array",
-              items: {
+        `,
+
+        config: {
+          responseMimeType: "application/json",
+
+          responseSchema: {
+            type: "object",
+
+            properties: {
+              summary: {
                 type: "string",
               },
-            },
-            openQuestions: {
-              type: "array",
-              items: {
-                type: "string",
-              },
-            },
-            actionItems: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  task: {
-                    type: "string",
-                  },
-                  assignee: {
-                    type: ["string", "null"],
-                  },
-                  dueDate: {
-                    type: ["string", "null"],
-                  },
+
+              keyDecisions: {
+                type: "array",
+                items: {
+                  type: "string",
                 },
-                required: ["task", "assignee", "dueDate"],
+              },
+
+              openQuestions: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+
+              actionItems: {
+                type: "array",
+
+                items: {
+                  type: "object",
+
+                  properties: {
+                    task: {
+                      type: "string",
+                    },
+
+                    assignee: {
+                      type: ["string", "null"],
+                    },
+
+                    dueDate: {
+                      type: ["string", "null"],
+                    },
+                  },
+
+                  required: [
+                    "task",
+                    "assignee",
+                    "dueDate",
+                  ],
+                },
               },
             },
+
+            required: [
+              "summary",
+              "keyDecisions",
+              "openQuestions",
+              "actionItems",
+            ],
           },
-          required: ["summary", "keyDecisions", "openQuestions", "actionItems"],
         },
-      },
-    });
+      }),
+    );
 
     const text = response.text;
 
     if (!text) {
       return NextResponse.json(
         {
-          message: "The AI service returned an empty response.",
+          message:
+            "The AI service returned an empty response.",
         },
         {
           status: 502,
@@ -141,7 +170,8 @@ ${meeting.transcript}
 
       return NextResponse.json(
         {
-          message: "The AI service returned an invalid response.",
+          message:
+            "The AI service returned an invalid response.",
         },
         {
           status: 502,
@@ -152,11 +182,15 @@ ${meeting.transcript}
     const result = analysisSchema.safeParse(parsed);
 
     if (!result.success) {
-      console.error("Invalid Gemini response:", result.error.flatten());
+      console.error(
+        "Invalid Gemini response:",
+        result.error.flatten(),
+      );
 
       return NextResponse.json(
         {
-          message: "The AI service returned an invalid response format.",
+          message:
+            "The AI service returned an invalid response format.",
         },
         {
           status: 502,
@@ -175,33 +209,52 @@ ${meeting.transcript}
         where: {
           id,
         },
+
         data: {
           summary: result.data.summary,
+
           keyDecisions: result.data.keyDecisions,
+
           openQuestions: result.data.openQuestions,
+
           actionItems: {
-            create: result.data.actionItems.map((item) => ({
-              task: item.task,
-              assignee: item.assignee,
-              dueDate: item.dueDate,
-            })),
+            create: result.data.actionItems.map(
+              (item) => ({
+                task: item.task,
+                assignee: item.assignee,
+                dueDate: item.dueDate,
+              }),
+            ),
           },
         },
       });
     });
 
-    const updatedMeeting = await prisma.meeting.findUnique({
-      where: {
-        id,
-      },
-      include: {
-        actionItems: true,
-      },
-    });
+    const updatedMeeting =
+      await prisma.meeting.findUnique({
+        where: {
+          id,
+        },
+
+        include: {
+          actionItems: true,
+        },
+      });
 
     return NextResponse.json(updatedMeeting);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "";
+    console.error(
+      "========== GEMINI ANALYSIS ERROR ==========",
+    );
+
+    console.error(error);
+
+    console.error(
+      "===========================================",
+    );
+
+    const errorMessage =
+      error instanceof Error ? error.message : "";
 
     if (
       errorMessage.includes("503") ||
@@ -252,7 +305,8 @@ ${meeting.transcript}
 
     return NextResponse.json(
       {
-        message: "Failed to analyze the meeting. Please try again.",
+        message:
+          "Failed to analyze the meeting. Please try again.",
       },
       {
         status: 500,
