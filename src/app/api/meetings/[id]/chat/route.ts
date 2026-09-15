@@ -104,7 +104,7 @@ ${previousMessages || "No previous conversation"}
 
     const response = await withGeminiRetry(() =>
       gemini.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-3.6-flash",
 
         contents: `
 You are an AI meeting assistant.

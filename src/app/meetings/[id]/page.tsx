@@ -44,14 +44,26 @@ export default function MeetingPage({
 }) {
   const router = useRouter();
 
-  const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [meeting, setMeeting] =
+    useState<Meeting | null>(null);
 
-  const [meetingId, setMeetingId] = useState<string | null>(null);
+  const [loading, setLoading] =
+    useState(true);
+
+  const [analyzing, setAnalyzing] =
+    useState(false);
+
+  const [deleting, setDeleting] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [analysisError, setAnalysisError] =
+    useState<string | null>(null);
+
+  const [meetingId, setMeetingId] =
+    useState<string | null>(null);
 
   useEffect(() => {
     async function loadMeeting() {
@@ -60,20 +72,31 @@ export default function MeetingPage({
 
         setMeetingId(id);
 
-        const response = await fetch(`/api/meetings/${id}`);
+        const response = await fetch(
+          `/api/meetings/${id}`,
+        );
 
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch meeting");
+          throw new Error(
+            data.message ||
+              "Failed to fetch meeting",
+          );
         }
 
-        setMeeting(data);
+        setMeeting({
+          ...data,
+          actionItems: data.actionItems ?? [],
+          chatMessages: data.chatMessages ?? [],
+        });
       } catch (error) {
         console.error(error);
 
         setError(
-          error instanceof Error ? error.message : "Failed to load meeting",
+          error instanceof Error
+            ? error.message
+            : "Failed to load meeting",
         );
       } finally {
         setLoading(false);
@@ -92,17 +115,27 @@ export default function MeetingPage({
     setAnalysisError(null);
 
     try {
-      const response = await fetch(`/api/meetings/${meetingId}/analyze`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/meetings/${meetingId}/analyze`,
+        {
+          method: "POST",
+        },
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to analyze meeting");
+        throw new Error(
+          data.message ||
+            "Failed to analyze meeting",
+        );
       }
 
-      setMeeting(data);
+      setMeeting({
+        ...data,
+        actionItems: data.actionItems ?? [],
+        chatMessages: data.chatMessages ?? [],
+      });
     } catch (error) {
       console.error(error);
 
@@ -132,14 +165,20 @@ export default function MeetingPage({
     setDeleting(true);
 
     try {
-      const response = await fetch(`/api/meetings/${meetingId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `/api/meetings/${meetingId}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to delete meeting");
+        throw new Error(
+          data.message ||
+            "Failed to delete meeting",
+        );
       }
 
       router.push("/");
@@ -147,7 +186,9 @@ export default function MeetingPage({
       console.error(error);
 
       setError(
-        error instanceof Error ? error.message : "Failed to delete meeting",
+        error instanceof Error
+          ? error.message
+          : "Failed to delete meeting",
       );
 
       setDeleting(false);
@@ -158,7 +199,13 @@ export default function MeetingPage({
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">
         <div className="flex min-h-[300px] items-center justify-center">
-          <p className="text-muted-foreground">Loading meeting...</p>
+          <div className="text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+
+            <p className="mt-4 text-sm text-muted-foreground">
+              Loading meeting...
+            </p>
+          </div>
         </div>
       </main>
     );
@@ -168,13 +215,19 @@ export default function MeetingPage({
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
-          <h1 className="text-lg font-semibold">Unable to load meeting</h1>
+          <h1 className="text-lg font-semibold">
+            Unable to load meeting
+          </h1>
 
-          <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {error}
+          </p>
 
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() =>
+              window.location.reload()
+            }
             className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
           >
             Try Again
@@ -200,10 +253,15 @@ export default function MeetingPage({
             ← Back to meetings
           </button>
 
-          <h1 className="text-3xl font-bold tracking-tight">{meeting.title}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {meeting.title}
+          </h1>
 
           <p className="mt-2 text-sm text-muted-foreground">
-            Created {new Date(meeting.createdAt).toLocaleString()}
+            Created{" "}
+            {new Date(
+              meeting.createdAt,
+            ).toLocaleString()}
           </p>
         </div>
 
@@ -214,7 +272,9 @@ export default function MeetingPage({
             disabled={analyzing}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {analyzing ? "Analyzing..." : "Analyze Meeting"}
+            {analyzing
+              ? "Analyzing..."
+              : "Analyze Meeting"}
           </button>
 
           <button
@@ -223,7 +283,9 @@ export default function MeetingPage({
             disabled={deleting}
             className="rounded-md border border-destructive/30 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {deleting ? "Deleting..." : "Delete"}
+            {deleting
+              ? "Deleting..."
+              : "Delete"}
           </button>
         </div>
       </div>
@@ -232,7 +294,9 @@ export default function MeetingPage({
         <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="font-semibold">AI analysis failed</h2>
+              <h2 className="font-semibold">
+                AI analysis failed
+              </h2>
 
               <p className="mt-1 text-sm text-muted-foreground">
                 {analysisError}
@@ -245,7 +309,9 @@ export default function MeetingPage({
               disabled={analyzing}
               className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
-              {analyzing ? "Retrying..." : "Try Again"}
+              {analyzing
+                ? "Retrying..."
+                : "Try Again"}
             </button>
           </div>
         </div>
@@ -258,10 +324,16 @@ export default function MeetingPage({
           openQuestions={meeting.openQuestions}
         />
 
-        <ActionItemTable actionItems={meeting.actionItems} />
+        <ActionItemTable
+          actionItems={
+            meeting.actionItems ?? []
+          }
+        />
 
         <section className="rounded-xl border p-6">
-          <h2 className="mb-4 text-xl font-semibold">Transcript</h2>
+          <h2 className="mb-4 text-xl font-semibold">
+            Transcript
+          </h2>
 
           <div className="whitespace-pre-wrap text-sm leading-7 text-muted-foreground">
             {meeting.transcript}
@@ -270,14 +342,20 @@ export default function MeetingPage({
 
         <MeetingChat
           meetingId={meeting.id}
-          initialMessages={meeting.chatMessages
+          initialMessages={(
+            meeting.chatMessages ?? []
+          )
             .filter(
               (message) =>
-                message.role === "user" || message.role === "assistant",
+                message.role === "user" ||
+                message.role === "assistant",
             )
             .map((message) => ({
               id: message.id,
-              role: message.role as "user" | "assistant",
+              role:
+                message.role as
+                  | "user"
+                  | "assistant",
               content: message.content,
             }))}
         />
