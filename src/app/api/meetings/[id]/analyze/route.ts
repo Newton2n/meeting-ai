@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { gemini } from "@/lib/gemini";
+import { gemini } from "../../../../../lib/gemini";
 import { prisma } from "../../../../../lib/prisma";
 
 const analysisSchema = z.object({
   summary: z.string(),
-
   keyDecisions: z.array(z.string()),
-
   openQuestions: z.array(z.string()),
-
   actionItems: z.array(
     z.object({
       task: z.string(),
@@ -79,54 +76,43 @@ ${meeting.transcript}
       `,
       config: {
         responseMimeType: "application/json",
-
         responseSchema: {
           type: "object",
-
           properties: {
             summary: {
               type: "string",
             },
-
             keyDecisions: {
               type: "array",
               items: {
                 type: "string",
               },
             },
-
             openQuestions: {
               type: "array",
               items: {
                 type: "string",
               },
             },
-
             actionItems: {
               type: "array",
-
               items: {
                 type: "object",
-
                 properties: {
                   task: {
                     type: "string",
                   },
-
                   assignee: {
                     type: ["string", "null"],
                   },
-
                   dueDate: {
                     type: ["string", "null"],
                   },
                 },
-
                 required: ["task", "assignee", "dueDate"],
               },
             },
           },
-
           required: ["summary", "keyDecisions", "openQuestions", "actionItems"],
         },
       },
@@ -137,7 +123,7 @@ ${meeting.transcript}
     if (!text) {
       return NextResponse.json(
         {
-          message: "Gemini returned an empty response",
+          message: "The AI service returned an empty response.",
         },
         {
           status: 502,
@@ -155,7 +141,7 @@ ${meeting.transcript}
 
       return NextResponse.json(
         {
-          message: "Gemini returned invalid JSON",
+          message: "The AI service returned an invalid response.",
         },
         {
           status: 502,
@@ -170,7 +156,7 @@ ${meeting.transcript}
 
       return NextResponse.json(
         {
-          message: "Gemini returned an invalid response format",
+          message: "The AI service returned an invalid response format.",
         },
         {
           status: 502,
@@ -189,14 +175,10 @@ ${meeting.transcript}
         where: {
           id,
         },
-
         data: {
           summary: result.data.summary,
-
           keyDecisions: result.data.keyDecisions,
-
           openQuestions: result.data.openQuestions,
-
           actionItems: {
             create: result.data.actionItems.map((item) => ({
               task: item.task,
@@ -212,7 +194,6 @@ ${meeting.transcript}
       where: {
         id,
       },
-
       include: {
         actionItems: true,
       },
@@ -220,16 +201,58 @@ ${meeting.transcript}
 
     return NextResponse.json(updatedMeeting);
   } catch (error) {
-    console.error("========== GEMINI ANALYSIS ERROR ==========");
+    const errorMessage = error instanceof Error ? error.message : "";
 
-    console.error(error);
+    if (
+      errorMessage.includes("503") ||
+      errorMessage.includes("UNAVAILABLE") ||
+      errorMessage.includes("high demand")
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "The AI service is temporarily busy. Please try again in a moment.",
+        },
+        {
+          status: 503,
+        },
+      );
+    }
 
-    console.error("===========================================");
+    if (
+      errorMessage.includes("429") ||
+      errorMessage.includes("RESOURCE_EXHAUSTED")
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "The AI service is temporarily unavailable due to usage limits. Please try again later.",
+        },
+        {
+          status: 429,
+        },
+      );
+    }
+
+    if (
+      errorMessage.includes("401") ||
+      errorMessage.includes("403") ||
+      errorMessage.includes("API key")
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "The AI service could not be authenticated. Please check the API configuration.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
 
     return NextResponse.json(
       {
-        message:
-          error instanceof Error ? error.message : "Failed to analyze meeting",
+        message: "Failed to analyze the meeting. Please try again.",
       },
       {
         status: 500,

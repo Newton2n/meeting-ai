@@ -22,15 +22,19 @@ export function MeetingChat({
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastQuestion, setLastQuestion] = useState<string | null>(
+    null,
+  );
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-
-    const message = input.trim();
-
+  async function sendMessage(message: string) {
     if (!message || loading) {
       return;
     }
+
+    setError(null);
+    setLastQuestion(message);
+    setLoading(true);
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -40,7 +44,6 @@ export function MeetingChat({
 
     setMessages((current) => [...current, userMessage]);
     setInput("");
-    setLoading(true);
 
     try {
       const response = await fetch(
@@ -60,7 +63,13 @@ export function MeetingChat({
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to get AI response",
+          data.message || "Failed to get AI response.",
+        );
+      }
+
+      if (!data.answer) {
+        throw new Error(
+          "The AI service returned an empty response.",
         );
       }
 
@@ -74,23 +83,49 @@ export function MeetingChat({
         ...current,
         assistantMessage,
       ]);
-    } catch (error) {
-      const errorMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content:
-          error instanceof Error
-            ? error.message
-            : "Something went wrong.",
-      };
 
-      setMessages((current) => [
-        ...current,
-        errorMessage,
-      ]);
+      setLastQuestion(null);
+    } catch (error) {
+      console.error("Meeting chat error:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again.",
+      );
+
+      setMessages((current) =>
+        current.filter(
+          (item) => item.id !== userMessage.id,
+        ),
+      );
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+
+    const message = input.trim();
+
+    if (!message || loading) {
+      return;
+    }
+
+    await sendMessage(message);
+  }
+
+  async function handleRetry() {
+    if (!lastQuestion || loading) {
+      return;
+    }
+
+    await sendMessage(lastQuestion);
+  }
+
+  function handleSuggestion(question: string) {
+    setInput(question);
   }
 
   return (
@@ -107,7 +142,7 @@ export function MeetingChat({
       </div>
 
       <div className="mt-5 min-h-[180px] space-y-4">
-        {messages.length === 0 && (
+        {messages.length === 0 && !error && (
           <div className="rounded-lg bg-muted/50 p-4">
             <p className="text-sm text-muted-foreground">
               Try asking:
@@ -116,14 +151,14 @@ export function MeetingChat({
             <button
               type="button"
               onClick={() =>
-                setInput(
+                handleSuggestion(
                   "What are the important things John needs to complete?",
                 )
               }
               className="mt-2 text-left text-sm font-medium text-primary hover:underline"
             >
-              "What are the important things John needs to
-              complete?"
+              What are the important things John needs to
+              complete?
             </button>
           </div>
         )}
@@ -154,6 +189,33 @@ export function MeetingChat({
             </p>
           </div>
         )}
+
+        {error && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium">
+                  Unable to get an AI response
+                </p>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {error}
+                </p>
+              </div>
+
+              {lastQuestion && (
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  disabled={loading}
+                  className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Try Again
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <form
@@ -162,10 +224,17 @@ export function MeetingChat({
       >
         <input
           value={input}
-          onChange={(event) => setInput(event.target.value)}
+          onChange={(event) => {
+            setInput(event.target.value);
+
+            if (error) {
+              setError(null);
+            }
+          }}
           placeholder="Ask a question about this meeting..."
           disabled={loading}
-          className="flex-1 rounded-lg border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          maxLength={2000}
+          className="flex-1 rounded-lg border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
         />
 
         <button
