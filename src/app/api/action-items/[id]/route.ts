@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "../../../../lib/prisma";
-import { updateActionItemSchema } from "../../../../lib/validations/action-item";
+import { updateActionItemSchema } from "@/lib/validation/action-item";
 
 type RouteContext = {
   params: Promise<{
