@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { prisma } from "../../../lib/prisma";
 import { createMeetingSchema } from "@/lib/validations";
 
@@ -25,13 +26,19 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(meeting, { status: 201 });
+    return NextResponse.json(meeting, {
+      status: 201,
+    });
   } catch (error) {
     console.error("Create meeting error:", error);
 
     return NextResponse.json(
-      { message: "Failed to create meeting" },
-      { status: 500 },
+      {
+        message: "Failed to create meeting",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
@@ -56,8 +63,12 @@ export async function GET() {
     console.error("Get meetings error:", error);
 
     return NextResponse.json(
-      { message: "Failed to fetch meetings" },
-      { status: 500 },
+      {
+        message: "Failed to fetch meetings",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }

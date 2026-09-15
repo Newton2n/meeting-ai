@@ -4,8 +4,19 @@ import { z } from "zod";
 import { prisma } from "../../../../lib/prisma";
 
 const updateMeetingSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  transcript: z.string().trim().min(10).max(100_000).optional(),
+  title: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .optional(),
+
+  transcript: z
+    .string()
+    .trim()
+    .min(10)
+    .max(100_000)
+    .optional(),
 });
 
 type RouteContext = {
@@ -41,8 +52,12 @@ export async function GET(
 
     if (!meeting) {
       return NextResponse.json(
-        { message: "Meeting not found" },
-        { status: 404 },
+        {
+          message: "Meeting not found",
+        },
+        {
+          status: 404,
+        },
       );
     }
 
@@ -51,8 +66,12 @@ export async function GET(
     console.error("Get meeting error:", error);
 
     return NextResponse.json(
-      { message: "Failed to fetch meeting" },
-      { status: 500 },
+      {
+        message: "Failed to fetch meeting",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
@@ -74,23 +93,33 @@ export async function PATCH(
           message: "Invalid request",
           errors: result.error.flatten(),
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
     const existingMeeting = await prisma.meeting.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existingMeeting) {
       return NextResponse.json(
-        { message: "Meeting not found" },
-        { status: 404 },
+        {
+          message: "Meeting not found",
+        },
+        {
+          status: 404,
+        },
       );
     }
 
     const meeting = await prisma.meeting.update({
-      where: { id },
+      where: {
+        id,
+      },
       data: result.data,
     });
 
@@ -99,8 +128,12 @@ export async function PATCH(
     console.error("Update meeting error:", error);
 
     return NextResponse.json(
-      { message: "Failed to update meeting" },
-      { status: 500 },
+      {
+        message: "Failed to update meeting",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
@@ -113,18 +146,26 @@ export async function DELETE(
     const { id } = await context.params;
 
     const existingMeeting = await prisma.meeting.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existingMeeting) {
       return NextResponse.json(
-        { message: "Meeting not found" },
-        { status: 404 },
+        {
+          message: "Meeting not found",
+        },
+        {
+          status: 404,
+        },
       );
     }
 
     await prisma.meeting.delete({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     return NextResponse.json({
@@ -134,8 +175,12 @@ export async function DELETE(
     console.error("Delete meeting error:", error);
 
     return NextResponse.json(
-      { message: "Failed to delete meeting" },
-      { status: 500 },
+      {
+        message: "Failed to delete meeting",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }

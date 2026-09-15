@@ -18,7 +18,8 @@ export async function PATCH(
 
     const body = await request.json();
 
-    const result = updateActionItemSchema.safeParse(body);
+    const result =
+      updateActionItemSchema.safeParse(body);
 
     if (!result.success) {
       return NextResponse.json(
@@ -26,33 +27,54 @@ export async function PATCH(
           message: "Invalid request",
           errors: result.error.flatten(),
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    const existingItem = await prisma.actionItem.findUnique({
-      where: { id },
-    });
+    const existingItem =
+      await prisma.actionItem.findUnique({
+        where: {
+          id,
+        },
+      });
 
     if (!existingItem) {
       return NextResponse.json(
-        { message: "Action item not found" },
-        { status: 404 },
+        {
+          message: "Action item not found",
+        },
+        {
+          status: 404,
+        },
       );
     }
 
-    const actionItem = await prisma.actionItem.update({
-      where: { id },
-      data: result.data,
-    });
+    const actionItem =
+      await prisma.actionItem.update({
+        where: {
+          id,
+        },
+
+        data: result.data,
+      });
 
     return NextResponse.json(actionItem);
   } catch (error) {
-    console.error("Update action item error:", error);
+    console.error(
+      "Update action item error:",
+      error,
+    );
 
     return NextResponse.json(
-      { message: "Failed to update action item" },
-      { status: 500 },
+      {
+        message:
+          "Failed to update action item",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
@@ -64,30 +86,48 @@ export async function DELETE(
   try {
     const { id } = await context.params;
 
-    const existingItem = await prisma.actionItem.findUnique({
-      where: { id },
-    });
+    const existingItem =
+      await prisma.actionItem.findUnique({
+        where: {
+          id,
+        },
+      });
 
     if (!existingItem) {
       return NextResponse.json(
-        { message: "Action item not found" },
-        { status: 404 },
+        {
+          message: "Action item not found",
+        },
+        {
+          status: 404,
+        },
       );
     }
 
     await prisma.actionItem.delete({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     return NextResponse.json({
-      message: "Action item deleted successfully",
+      message:
+        "Action item deleted successfully",
     });
   } catch (error) {
-    console.error("Delete action item error:", error);
+    console.error(
+      "Delete action item error:",
+      error,
+    );
 
     return NextResponse.json(
-      { message: "Failed to delete action item" },
-      { status: 500 },
+      {
+        message:
+          "Failed to delete action item",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }

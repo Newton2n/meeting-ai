@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { openai } from "../../../../../lib/openai";
+import { gemini } from "../../../../../lib/gemini";
 import { prisma } from "../../../../../lib/prisma";
 
 const chatSchema = z.object({
@@ -14,10 +14,7 @@ type RouteContext = {
   }>;
 };
 
-export async function POST(
-  request: Request,
-  context: RouteContext,
-) {
+export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
 
@@ -31,18 +28,29 @@ export async function POST(
           message: "Invalid request",
           errors: result.error.flatten(),
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
     const meeting = await prisma.meeting.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+
       include: {
-        actionItems: true,
+        actionItems: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+
         chatMessages: {
           orderBy: {
             createdAt: "asc",
           },
+
           take: 20,
         },
       },
@@ -50,20 +58,35 @@ export async function POST(
 
     if (!meeting) {
       return NextResponse.json(
-        { message: "Meeting not found" },
-        { status: 404 },
+        {
+          message: "Meeting not found",
+        },
+        {
+          status: 404,
+        },
       );
     }
 
-    const context = `
+    const actionItems = meeting.actionItems.map((item) => ({
+      task: item.task,
+      assignee: item.assignee,
+      dueDate: item.dueDate,
+      status: item.status,
+    }));
+
+    const previousMessages = meeting.chatMessages
+      .map((message) => `${message.role}: ${message.content}`)
+      .join("\n");
+
+    const meetingContext = `
 Meeting title:
 ${meeting.title}
 
-Meeting transcript:
+Transcript:
 ${meeting.transcript}
 
 Summary:
-${meeting.summary ?? "Not analyzed yet."}
+${meeting.summary ?? "Not available"}
 
 Key decisions:
 ${JSON.stringify(meeting.keyDecisions ?? [])}
@@ -72,42 +95,46 @@ Open questions:
 ${JSON.stringify(meeting.openQuestions ?? [])}
 
 Action items:
-${JSON.stringify(meeting.actionItems)}
+${JSON.stringify(actionItems)}
+
+Previous conversation:
+${previousMessages || "No previous conversation"}
 `;
 
-    const history = meeting.chatMessages.map((message) => ({
-      role: message.role === "assistant" ? "assistant" : "user",
-      content: message.content,
-    }));
+    const response = await gemini.models.generateContent({
+      model: "gemini-3.6-flash",
 
-    const response = await openai.responses.create({
-      model: "gpt-5-mini",
-      input: [
-        {
-          role: "system",
-          content: `
-You are an AI assistant for a meeting management application.
+      contents: `
+You are an AI meeting assistant.
 
-Answer questions using ONLY the supplied meeting information.
+Answer the user's question using ONLY the meeting information provided below.
 
-Do not invent facts.
+Rules:
 
-If the answer cannot be found in the meeting information, say that it is not available in this meeting.
+- Do not invent information.
+- Do not use outside knowledge.
+- If the answer cannot be found in the meeting information, say that the information is not available in this meeting.
+- Give a concise and useful answer.
+- When discussing tasks, mention the assignee and due date when available.
+- Use the previous conversation only as context.
 
-Meeting information:
+MEETING INFORMATION
+===================
 
-${context}
-`,
-        },
-        ...history,
-        {
-          role: "user",
-          content: result.data.message,
-        },
-      ],
+${meetingContext}
+
+USER QUESTION
+=============
+
+${result.data.message}
+        `,
     });
 
-    const answer = response.output_text;
+    const answer = response.text;
+
+    if (!answer) {
+      throw new Error("Gemini returned an empty response");
+    }
 
     await prisma.chatMessage.createMany({
       data: [
@@ -116,6 +143,7 @@ ${context}
           role: "user",
           content: result.data.message,
         },
+
         {
           meetingId: id,
           role: "assistant",
@@ -128,11 +156,20 @@ ${context}
       answer,
     });
   } catch (error) {
-    console.error("Meeting chat error:", error);
+    console.error("========== GEMINI CHAT ERROR ==========");
+
+    console.error(error);
+
+    console.error("=======================================");
 
     return NextResponse.json(
-      { message: "Failed to answer question" },
-      { status: 500 },
+      {
+        message:
+          error instanceof Error ? error.message : "Failed to answer question",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }

@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { openai } from "../../../../../lib/openai";
+import { gemini } from "@/lib/gemini";
 import { prisma } from "../../../../../lib/prisma";
 
 const analysisSchema = z.object({
   summary: z.string(),
+
   keyDecisions: z.array(z.string()),
+
   openQuestions: z.array(z.string()),
+
   actionItems: z.array(
     z.object({
       task: z.string(),
@@ -23,82 +26,155 @@ type RouteContext = {
   }>;
 };
 
-export async function POST(
-  _request: Request,
-  context: RouteContext,
-) {
+export async function POST(_request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
 
     const meeting = await prisma.meeting.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!meeting) {
       return NextResponse.json(
-        { message: "Meeting not found" },
-        { status: 404 },
+        {
+          message: "Meeting not found",
+        },
+        {
+          status: 404,
+        },
       );
     }
 
-    const response = await openai.responses.create({
-      model: "gpt-5-mini",
-      input: [
-        {
-          role: "system",
-          content: `
-You analyze meeting transcripts and extract structured information.
+    const response = await gemini.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: `
+Analyze the following meeting transcript.
 
-Return ONLY valid JSON with this structure:
+Extract:
 
-{
-  "summary": "string",
-  "keyDecisions": ["string"],
-  "openQuestions": ["string"],
-  "actionItems": [
-    {
-      "task": "string",
-      "assignee": "string or null",
-      "dueDate": "string or null"
-    }
-  ]
-}
+1. A concise meeting summary.
+2. Important key decisions.
+3. Open questions.
+4. Concrete action items.
+5. The person responsible for each action item when mentioned.
+6. The due date when mentioned.
 
-Rules:
-- Do not invent information.
-- Only use information present in the transcript.
-- Keep the summary concise.
-- Extract concrete action items.
+Important rules:
+
+- Use ONLY information from the transcript.
+- Do not invent names, dates, decisions, or tasks.
 - If an assignee is not mentioned, use null.
 - If a due date is not mentioned, use null.
-`,
+- Keep the summary concise.
+- Extract actual actionable tasks rather than general discussion.
+- Return empty arrays when there are no decisions, questions, or action items.
+
+Meeting title:
+${meeting.title}
+
+Meeting transcript:
+${meeting.transcript}
+      `,
+      config: {
+        responseMimeType: "application/json",
+
+        responseSchema: {
+          type: "object",
+
+          properties: {
+            summary: {
+              type: "string",
+            },
+
+            keyDecisions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
+
+            openQuestions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
+
+            actionItems: {
+              type: "array",
+
+              items: {
+                type: "object",
+
+                properties: {
+                  task: {
+                    type: "string",
+                  },
+
+                  assignee: {
+                    type: ["string", "null"],
+                  },
+
+                  dueDate: {
+                    type: ["string", "null"],
+                  },
+                },
+
+                required: ["task", "assignee", "dueDate"],
+              },
+            },
+          },
+
+          required: ["summary", "keyDecisions", "openQuestions", "actionItems"],
         },
-        {
-          role: "user",
-          content: meeting.transcript,
-        },
-      ],
+      },
     });
 
-    const text = response.output_text;
+    const text = response.text;
+
+    if (!text) {
+      return NextResponse.json(
+        {
+          message: "Gemini returned an empty response",
+        },
+        {
+          status: 502,
+        },
+      );
+    }
 
     let parsed: unknown;
 
     try {
       parsed = JSON.parse(text);
-    } catch {
+    } catch (error) {
+      console.error("Gemini JSON parse error:", error);
+      console.error("Gemini response:", text);
+
       return NextResponse.json(
-        { message: "AI returned invalid JSON" },
-        { status: 502 },
+        {
+          message: "Gemini returned invalid JSON",
+        },
+        {
+          status: 502,
+        },
       );
     }
 
     const result = analysisSchema.safeParse(parsed);
 
     if (!result.success) {
+      console.error("Invalid Gemini response:", result.error.flatten());
+
       return NextResponse.json(
-        { message: "AI returned an invalid response format" },
-        { status: 502 },
+        {
+          message: "Gemini returned an invalid response format",
+        },
+        {
+          status: 502,
+        },
       );
     }
 
@@ -113,10 +189,14 @@ Rules:
         where: {
           id,
         },
+
         data: {
           summary: result.data.summary,
+
           keyDecisions: result.data.keyDecisions,
+
           openQuestions: result.data.openQuestions,
+
           actionItems: {
             create: result.data.actionItems.map((item) => ({
               task: item.task,
@@ -129,7 +209,10 @@ Rules:
     });
 
     const updatedMeeting = await prisma.meeting.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+
       include: {
         actionItems: true,
       },
@@ -137,11 +220,20 @@ Rules:
 
     return NextResponse.json(updatedMeeting);
   } catch (error) {
-    console.error("Meeting analysis error:", error);
+    console.error("========== GEMINI ANALYSIS ERROR ==========");
+
+    console.error(error);
+
+    console.error("===========================================");
 
     return NextResponse.json(
-      { message: "Failed to analyze meeting" },
-      { status: 500 },
+      {
+        message:
+          error instanceof Error ? error.message : "Failed to analyze meeting",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
