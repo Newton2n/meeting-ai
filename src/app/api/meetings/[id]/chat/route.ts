@@ -15,6 +15,7 @@ type RouteContext = {
   }>;
 };
 
+// Handle chat messages for a specific meeting
 export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
@@ -159,11 +160,7 @@ ${result.data.message}
       answer,
     });
   } catch (error) {
-    console.error("========== GEMINI CHAT ERROR ==========");
-
-    console.error(error);
-
-    console.error("=======================================");
+   
 
     const errorMessage = error instanceof Error ? error.message : "";
 

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { createMeetingSchema } from "@/lib/validations";
 
+// Create a new meeting
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
   }
 }
 
+// Get all meetings
 export async function GET() {
   try {
     const meetings = await prisma.meeting.findMany({

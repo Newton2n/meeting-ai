@@ -25,6 +25,7 @@ type RouteContext = {
   }>;
 };
 
+// Get a specific meeting
 export async function GET(
   _request: Request,
   context: RouteContext,
@@ -76,6 +77,7 @@ export async function GET(
   }
 }
 
+// Update a specific meeting
 export async function PATCH(
   request: Request,
   context: RouteContext,
@@ -138,6 +140,8 @@ export async function PATCH(
   }
 }
 
+
+// Delete a specific meeting
 export async function DELETE(
   _request: Request,
   context: RouteContext,

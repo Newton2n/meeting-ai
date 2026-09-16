@@ -9,6 +9,7 @@ type RouteContext = {
   }>;
 };
 
+// Update an action item
 export async function PATCH(
   request: Request,
   context: RouteContext,
@@ -79,6 +80,7 @@ export async function PATCH(
   }
 }
 
+// Delete an action item
 export async function DELETE(
   _request: Request,
   context: RouteContext,

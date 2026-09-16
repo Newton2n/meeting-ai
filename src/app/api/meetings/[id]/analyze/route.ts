@@ -213,13 +213,6 @@ ${meeting.transcript}
       });
     });
 
-    /*
-     * Return the complete meeting data.
-     *
-     * Important:
-     * chatMessages is included here because MeetingPage
-     * expects it after the Analyze request finishes.
-     */
     const updatedMeeting = await prisma.meeting.findUnique({
       where: {
         id,
@@ -242,12 +235,6 @@ ${meeting.transcript}
 
     return NextResponse.json(updatedMeeting);
   } catch (error) {
-    console.error("========== GEMINI ANALYSIS ERROR ==========");
-
-    console.error(error);
-
-    console.error("===========================================");
-
     const errorMessage = error instanceof Error ? error.message : "";
 
     if (
