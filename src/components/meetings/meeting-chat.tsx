@@ -1,6 +1,11 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 type Message = {
   id: string;
@@ -22,27 +27,52 @@ export function MeetingChat({
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastQuestion, setLastQuestion] = useState<string | null>(
+  const [error, setError] =
+    useState<string | null>(null);
+  const [lastQuestion, setLastQuestion] =
+    useState<string | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(
     null,
   );
 
+  const inputRef = useRef<HTMLInputElement | null>(
+    null,
+  );
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [messages, loading]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
   async function sendMessage(message: string) {
-    if (!message || loading) {
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage || loading) {
       return;
     }
 
     setError(null);
-    setLastQuestion(message);
+    setLastQuestion(trimmedMessage);
     setLoading(true);
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: message,
+      content: trimmedMessage,
     };
 
-    setMessages((current) => [...current, userMessage]);
+    setMessages((current) => [
+      ...current,
+      userMessage,
+    ]);
+
     setInput("");
 
     try {
@@ -54,20 +84,35 @@ export function MeetingChat({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            message,
+            message: trimmedMessage,
           }),
         },
       );
 
-      const data = await response.json();
+      let data: {
+        answer?: string;
+        message?: string;
+      };
 
-      if (!response.ok) {
+      try {
+        data = await response.json();
+      } catch {
         throw new Error(
-          data.message || "Failed to get AI response.",
+          "The server returned an invalid response.",
         );
       }
 
-      if (!data.answer) {
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to get AI response.",
+        );
+      }
+
+      if (
+        !data.answer ||
+        typeof data.answer !== "string"
+      ) {
         throw new Error(
           "The AI service returned an empty response.",
         );
@@ -85,12 +130,12 @@ export function MeetingChat({
       ]);
 
       setLastQuestion(null);
-    } catch (error) {
-      console.error("Meeting chat error:", error);
+    } catch (sendError) {
+      console.error("Meeting chat error:", sendError);
 
       setError(
-        error instanceof Error
-          ? error.message
+        sendError instanceof Error
+          ? sendError.message
           : "Something went wrong. Please try again.",
       );
 
@@ -101,19 +146,23 @@ export function MeetingChat({
       );
     } finally {
       setLoading(false);
+
+      window.setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   }
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
-    const message = input.trim();
-
-    if (!message || loading) {
+    if (loading) {
       return;
     }
 
-    await sendMessage(message);
+    await sendMessage(input);
   }
 
   async function handleRetry() {
@@ -126,125 +175,210 @@ export function MeetingChat({
 
   function handleSuggestion(question: string) {
     setInput(question);
+    setError(null);
+
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
   }
 
   return (
-    <section className="rounded-xl border bg-card p-6">
-      <div>
-        <h2 className="text-lg font-semibold">
-          Ask about this meeting
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
+      {/* Header */}
+      <div className="shrink-0 border-b px-4 py-3 sm:px-5 sm:py-4">
+        <h2 className="text-sm font-semibold sm:text-base">
+          AI Meeting Assistant
         </h2>
 
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ask questions about the transcript, decisions, or
-          action items.
+        <p className="mt-1 text-[11px] leading-4 text-muted-foreground sm:text-xs">
+          Ask questions about this meeting.
         </p>
       </div>
 
-      <div className="mt-5 min-h-[180px] space-y-4">
-        {messages.length === 0 && !error && (
-          <div className="rounded-lg bg-muted/50 p-4">
-            <p className="text-sm text-muted-foreground">
-              Try asking:
-            </p>
+      {/* Messages */}
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-4 sm:px-5 sm:py-5"
+        aria-live="polite"
+        aria-busy={loading}
+      >
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 sm:gap-4">
+          {messages.length === 0 && !error && (
+            <div className="rounded-xl border bg-muted/40 p-3 sm:p-4">
+              <p className="text-xs font-medium text-muted-foreground">
+                Try asking
+              </p>
 
-            <button
-              type="button"
-              onClick={() =>
-                handleSuggestion(
-                  "What are the important things John needs to complete?",
-                )
-              }
-              className="mt-2 text-left text-sm font-medium text-primary hover:underline"
-            >
-              What are the important things John needs to
-              complete?
-            </button>
-          </div>
-        )}
+              <button
+                type="button"
+                onClick={() =>
+                  handleSuggestion(
+                    "What are the important things John needs to complete?",
+                  )
+                }
+                className="mt-2 block min-h-10 w-full rounded-md text-left text-sm font-medium leading-5 text-primary transition-colors hover:bg-primary/5 hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              >
+                What are the important things John needs
+                to complete?
+              </button>
+            </div>
+          )}
 
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={
-              message.role === "user"
-                ? "ml-auto max-w-[85%] rounded-xl bg-primary p-4 text-sm text-primary-foreground"
-                : "max-w-[85%] rounded-xl bg-muted p-4 text-sm"
-            }
-          >
-            <p className="mb-1 text-xs font-medium opacity-70">
-              {message.role === "user" ? "You" : "AI"}
-            </p>
+          {messages.map((message) => {
+            const isUser = message.role === "user";
 
-            <p className="whitespace-pre-wrap leading-6">
-              {message.content}
-            </p>
-          </div>
-        ))}
+            return (
+              <div
+                key={message.id}
+                className={`flex w-full ${
+                  isUser
+                    ? "justify-end"
+                    : "justify-start"
+                }`}
+              >
+                <div
+                  className={[
+                    "min-w-0 max-w-[92%] break-words rounded-2xl px-3 py-2.5 text-sm shadow-sm sm:max-w-[85%] sm:px-4 sm:py-3",
+                    isUser
+                      ? "rounded-br-md bg-primary text-primary-foreground"
+                      : "rounded-bl-md bg-muted text-foreground",
+                  ].join(" ")}
+                >
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide opacity-70 sm:text-[11px]">
+                    {isUser ? "You" : "AI"}
+                  </p>
 
-        {loading && (
-          <div className="max-w-[85%] rounded-xl bg-muted p-4">
-            <p className="text-sm text-muted-foreground">
-              AI is thinking...
-            </p>
-          </div>
-        )}
-
-        {error && (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium">
-                  Unable to get an AI response
-                </p>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {error}
-                </p>
+                  <p className="whitespace-pre-wrap break-words leading-6 [overflow-wrap:anywhere]">
+                    {message.content}
+                  </p>
+                </div>
               </div>
+            );
+          })}
+
+          {loading && (
+            <div className="flex w-full justify-start">
+              <div className="max-w-[92%] rounded-2xl rounded-bl-md bg-muted px-3 py-2.5 sm:max-w-[85%] sm:px-4 sm:py-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="flex items-center gap-1"
+                    aria-label="AI is thinking"
+                  >
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-50 [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-50 [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-50" />
+                  </div>
+
+                  <span className="text-xs text-muted-foreground">
+                    AI is thinking...
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div
+              role="alert"
+              className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 sm:p-4"
+            >
+              <p className="text-sm font-medium">
+                Unable to get an AI response
+              </p>
+
+              <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">
+                {error}
+              </p>
 
               {lastQuestion && (
                 <button
                   type="button"
                   onClick={handleRetry}
                   disabled={loading}
-                  className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-3 min-h-9 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Try Again
+                  {loading ? "Retrying..." : "Try Again"}
                 </button>
               )}
             </div>
-          </div>
-        )}
+          )}
+
+          <div
+            ref={messagesEndRef}
+            className="h-px w-full shrink-0"
+            aria-hidden="true"
+          />
+        </div>
       </div>
 
+      {/* Input */}
       <form
         onSubmit={handleSubmit}
-        className="mt-5 flex flex-col gap-2 sm:flex-row"
+        className="shrink-0 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4"
       >
-        <input
-          value={input}
-          onChange={(event) => {
-            setInput(event.target.value);
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 sm:flex-row">
+          <label htmlFor="meeting-chat-input" className="sr-only">
+            Ask a question about this meeting
+          </label>
 
-            if (error) {
-              setError(null);
-            }
-          }}
-          placeholder="Ask a question about this meeting..."
-          disabled={loading}
-          maxLength={2000}
-          className="flex-1 rounded-lg border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
-        />
+          <input
+            ref={inputRef}
+            id="meeting-chat-input"
+            value={input}
+            onChange={(event) => {
+              setInput(event.target.value);
 
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading ? "Asking..." : "Ask"}
-        </button>
+              if (error) {
+                setError(null);
+              }
+            }}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing
+              ) {
+                event.preventDefault();
+
+                if (input.trim() && !loading) {
+                  void sendMessage(input);
+                }
+              }
+            }}
+            placeholder="Ask about this meeting..."
+            autoComplete="off"
+            disabled={loading}
+            maxLength={2000}
+            className="min-h-11 min-w-0 w-full flex-1 rounded-xl border bg-background px-3 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10"
+          />
+
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            className="min-h-11 w-full shrink-0 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:w-auto"
+          >
+            {loading ? (
+              <span className="inline-flex items-center gap-2">
+                <span
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground"
+                  aria-hidden="true"
+                />
+                <span className="sm:hidden">
+                  Sending...
+                </span>
+                <span className="hidden sm:inline">
+                  Sending
+                </span>
+              </span>
+            ) : (
+              "Ask"
+            )}
+          </button>
+        </div>
+
+        <p className="mx-auto mt-2 hidden w-full max-w-3xl text-[10px] text-muted-foreground sm:block">
+          Press Enter to send.
+        </p>
       </form>
-    </section>
+    </div>
   );
 }
