@@ -1,6 +1,5 @@
 "use client";
 
-// ADDED: Import useEffect
 import { useState, useEffect } from "react";
 
 type ActionItem = {
@@ -28,7 +27,6 @@ export function ActionItemTable({ actionItems }: Props) {
   const [editingItem, setEditingItem] = useState<ActionItem | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  // ✅ ADDED: This listens for new AI data from the parent and updates the table!
   useEffect(() => {
     setItems(actionItems);
   }, [actionItems]);
@@ -54,9 +52,7 @@ export function ActionItemTable({ actionItems }: Props) {
       }
 
       setItems((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, status } : item,
-        ),
+        current.map((item) => (item.id === id ? { ...item, status } : item)),
       );
     } catch (error) {
       console.error("Update status error:", error);
@@ -91,7 +87,9 @@ export function ActionItemTable({ actionItems }: Props) {
       setItems((current) => current.filter((item) => item.id !== id));
     } catch (error) {
       console.error("Delete action item error:", error);
-      alert(error instanceof Error ? error.message : "Failed to delete action item");
+      alert(
+        error instanceof Error ? error.message : "Failed to delete action item",
+      );
     } finally {
       setLoadingId(null);
     }
@@ -132,7 +130,9 @@ export function ActionItemTable({ actionItems }: Props) {
       setEditingItem(null);
     } catch (error) {
       console.error("Edit action item error:", error);
-      alert(error instanceof Error ? error.message : "Failed to update action item");
+      alert(
+        error instanceof Error ? error.message : "Failed to update action item",
+      );
     } finally {
       setLoadingId(null);
     }
@@ -191,7 +191,10 @@ export function ActionItemTable({ actionItems }: Props) {
                       value={item.status}
                       disabled={loadingId === item.id}
                       onChange={(event) =>
-                        updateStatus(item.id, event.target.value as ActionItem["status"])
+                        updateStatus(
+                          item.id,
+                          event.target.value as ActionItem["status"],
+                        )
                       }
                       className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                     >
@@ -258,7 +261,9 @@ export function ActionItemTable({ actionItems }: Props) {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium">Assignee</label>
+                <label className="mb-2 block text-sm font-medium">
+                  Assignee
+                </label>
                 <input
                   value={editingItem.assignee ?? ""}
                   onChange={(event) =>
@@ -272,7 +277,9 @@ export function ActionItemTable({ actionItems }: Props) {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium">Due Date</label>
+                <label className="mb-2 block text-sm font-medium">
+                  Due Date
+                </label>
                 <input
                   value={editingItem.dueDate ?? ""}
                   onChange={(event) =>

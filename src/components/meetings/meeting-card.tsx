@@ -11,8 +11,12 @@ type MeetingCardProps = {
   };
 };
 
-export function MeetingCard({ meeting }: MeetingCardProps) {
-  const date = new Date(meeting.createdAt).toLocaleDateString(undefined, {
+export function MeetingCard({
+  meeting,
+}: MeetingCardProps) {
+  const date = new Date(
+    meeting.createdAt,
+  ).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -21,11 +25,11 @@ export function MeetingCard({ meeting }: MeetingCardProps) {
   return (
     <Link
       href={`/meetings/${meeting.id}`}
-      className="group block rounded-xl border bg-card p-6 transition-shadow hover:shadow-md"
+      className="group block overflow-hidden rounded-xl border bg-card p-6 transition-shadow hover:shadow-md"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold group-hover:text-primary">
+        <div className="min-w-0 flex-1">
+          <h2 className="break-words text-lg font-semibold group-hover:text-primary">
             {meeting.title}
           </h2>
 
@@ -34,7 +38,7 @@ export function MeetingCard({ meeting }: MeetingCardProps) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
             {meeting._count.actionItems}{" "}
             {meeting._count.actionItems === 1
